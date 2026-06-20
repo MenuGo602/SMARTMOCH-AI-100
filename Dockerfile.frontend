@@ -3,7 +3,7 @@ FROM node:20-alpine AS build
 WORKDIR /app
 
 COPY package*.json ./
-RUN npm ci
+RUN npm install
 
 # Faqat frontend'ga tegishli fayllarni nusxalaymiz (repo root'i flat bo'lgani uchun)
 COPY App.jsx ./src/App.jsx
