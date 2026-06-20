@@ -1,0 +1,66 @@
+// Telegram WebApp bilan ishlash uchun yordamchi funksiyalar.
+// Bot ichida ochilganda window.Telegram.WebApp obyekti avtomatik mavjud bo'ladi.
+
+export function getTelegram() {
+  return window?.Telegram?.WebApp || null;
+}
+
+// Telegram WebApp'ning safe-area ma'lumotini (status bar, tizim tugmalari balandligi)
+// CSS custom property sifatida hujjat ildiziga yozadi. Bot API 8.0+ da mavjud;
+// eski versiyalarda bu maydonlar bo'lmasligi mumkin, shu sabab fallback 0 ishlatiladi.
+export function applySafeAreaInsets() {
+  const tg = getTelegram();
+  if (!tg) return;
+  const apply = () => {
+    const sa = tg.safeAreaInset || {};
+    const csa = tg.contentSafeAreaInset || {};
+    const top = Math.max(sa.top || 0, csa.top || 0);
+    document.documentElement.style.setProperty("--tg-safe-top", `${top}px`);
+  };
+  apply();
+  if (typeof tg.onEvent === "function") {
+    tg.onEvent("safeAreaChanged", apply);
+    tg.onEvent("contentSafeAreaChanged", apply);
+  }
+}
+
+// Mini App'ni ishga tushirish: ready() + expand() (+ imkon bo'lsa requestFullscreen()) chaqiradi.
+export function initTelegram() {
+  const tg = getTelegram();
+  if (!tg) return null;
+  try {
+    tg.ready();
+    tg.expand();
+    // requestFullscreen Bot API 8.0+ da mavjud (eski Telegram versiyalarida yo'q
+    // bo'lishi mumkin, shuning uchun mavjudligini tekshirib chaqiramiz).
+    if (typeof tg.requestFullscreen === "function") {
+      tg.requestFullscreen();
+    }
+    applySafeAreaInsets();
+  } catch (e) {
+    /* brauzerda (Telegram tashqarisida) test qilinayotgan bo'lishi mumkin */
+  }
+  return tg;
+}
+
+// Backendga yuboriladigan "initData" — bu Telegram tomonidan imzolangan satr,
+// backend buni HMAC-SHA256 orqali tekshirib, foydalanuvchini autentifikatsiya qiladi.
+// E'tibor bering: bu initDataUnsafe emas — xom, imzolangan string.
+export function getInitData() {
+  const tg = getTelegram();
+  return tg?.initData || "";
+}
+
+// Tezkor UI uchun (ism, id ko'rsatish) — bu tekshirilmagan ma'lumot,
+// xavfsizlik uchun emas, faqat boshlang'ich render uchun ishlatiladi.
+// Haqiqiy autentifikatsiya har doim backend tomonida initData orqali bo'ladi.
+export function getUnsafeTelegramUser() {
+  const tg = getTelegram();
+  return tg?.initDataUnsafe?.user || null;
+}
+
+export function showTelegramAlert(message) {
+  const tg = getTelegram();
+  if (tg?.showAlert) tg.showAlert(message);
+  else window.alert(message);
+}
