@@ -8,8 +8,8 @@ RUN npm install
 # Faqat frontend'ga tegishli fayllarni nusxalaymiz (repo root'i flat bo'lgani uchun)
 COPY App.jsx ./src/App.jsx
 COPY main.jsx ./src/main.jsx
-COPY api.js ./src/api.js
-COPY telegram.js ./src/telegram.js
+COPY api.js ./src/lib/api.js
+COPY telegram.js ./src/lib/telegram.js
 COPY index.html ./index.html
 COPY vite.config.js ./vite.config.js
 
