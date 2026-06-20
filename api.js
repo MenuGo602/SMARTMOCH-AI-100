@@ -1,43 +1,15 @@
-import { getInitData, getUnsafeTelegramUser } from "./telegram";
+import { getInitData } from "./telegram";
 
 // Backend manzili build-vaqtida beriladi (Dockerfile'dagi VITE_API_URL ARG'ga qarang).
 // Lokal devda .env faylga VITE_API_URL=http://localhost:8000/api/v1 deb yozing.
 const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000/api/v1";
 
-// ─────────────────────────────────────────────────────────────────────────
-// VAQTINCHALIK REJIM: backendda hali /auth, /exams, /submissions endpointlari
-// yo'q (faqat /grading/writing va /grading/speaking mavjud). Shuning uchun
-// profil/imtihon/submission ma'lumotlari hozircha localStorage'da saqlanadi.
-// Backend tayyor bo'lgach, quyidagi LOCAL_* funksiyalarni qayta `request(...)`
-// chaqiruvlariga almashtiring (eski versiya git tarixida saqlangan).
-// ─────────────────────────────────────────────────────────────────────────
-
-const LS_KEYS = {
-  profile: "smartmock:profile",
-  exams: "smartmock:exams",
-  submissions: "smartmock:submissions",
-};
-
-function lsGet(key, fallback) {
-  try {
-    const raw = localStorage.getItem(key);
-    return raw ? JSON.parse(raw) : fallback;
-  } catch {
-    return fallback;
-  }
-}
-function lsSet(key, value) {
-  try {
-    localStorage.setItem(key, JSON.stringify(value));
-  } catch {
-    // localStorage mavjud bo'lmasa (xususiy rejim va h.k.) jim o'tib ketamiz
-  }
-}
-function uid() {
-  return Math.random().toString(36).slice(2) + Date.now().toString(36);
-}
-
 const ENDPOINTS = {
+  me: "/auth/me",
+  role: "/auth/role",
+  profile: "/auth/profile",
+  exams: "/exams",
+  submissions: "/submissions",
   gradeWriting: "/grading/writing",
   gradeSpeaking: "/grading/speaking",
 };
@@ -70,56 +42,26 @@ async function request(path, { method = "GET", body } = {}) {
 }
 
 export const api = {
-  // ---- Profil / rol (vaqtincha: localStorage) ----
-  getMe: async () => {
-    const profile = lsGet(LS_KEYS.profile, null);
-    if (profile) return profile;
-    const tgUser = getUnsafeTelegramUser();
-    return tgUser?.id ? { userId: String(tgUser.id), role: null, name: null } : null;
-  },
-  chooseRole: async (role) => {
-    const profile = lsGet(LS_KEYS.profile, {}) || {};
-    const updated = { ...profile, role };
-    lsSet(LS_KEYS.profile, updated);
-    return updated;
-  },
-  saveDisplayName: async (name) => {
-    const profile = lsGet(LS_KEYS.profile, {}) || {};
-    const updated = { ...profile, name };
-    lsSet(LS_KEYS.profile, updated);
-    return updated;
-  },
+  // ---- Profil / rol ----
+  // Backend initData'ni tekshiradi va foydalanuvchini topadi/yaratadi,
+  // { role, name, userId } qaytaradi (role topilmasa null).
+  getMe: () => request(ENDPOINTS.me),
+  chooseRole: (role) => request(ENDPOINTS.role, { method: "POST", body: { role } }),
+  saveDisplayName: (name) => request(ENDPOINTS.profile, { method: "POST", body: { name } }),
 
-  // ---- Imtihonlar (vaqtincha: localStorage) ----
-  listExams: async () => lsGet(LS_KEYS.exams, []),
-  createExam: async (exam) => {
-    const exams = lsGet(LS_KEYS.exams, []);
-    const newExam = { ...exam, id: exam.id || uid() };
-    lsSet(LS_KEYS.exams, [...exams, newExam]);
-    return newExam;
-  },
-  deleteExam: async (id) => {
-    const exams = lsGet(LS_KEYS.exams, []);
-    lsSet(LS_KEYS.exams, exams.filter((e) => e.id !== id));
-    return null;
-  },
+  // ---- Imtihonlar ----
+  listExams: () => request(ENDPOINTS.exams),
+  createExam: (exam) => request(ENDPOINTS.exams, { method: "POST", body: exam }),
+  deleteExam: (id) => request(`${ENDPOINTS.exams}/${id}`, { method: "DELETE" }),
 
-  // ---- Topshiriqlar / submission'lar (vaqtincha: localStorage) ----
-  listSubmissions: async () => lsGet(LS_KEYS.submissions, []),
-  createSubmission: async (sub) => {
-    const subs = lsGet(LS_KEYS.submissions, []);
-    const newSub = { ...sub, id: sub.id || uid() };
-    lsSet(LS_KEYS.submissions, [...subs, newSub]);
-    return newSub;
-  },
-  updateSubmission: async (id, patch) => {
-    const subs = lsGet(LS_KEYS.submissions, []);
-    const updated = subs.map((s) => (s.id === id ? { ...s, ...patch } : s));
-    lsSet(LS_KEYS.submissions, updated);
-    return updated.find((s) => s.id === id) || null;
-  },
+  // ---- Topshiriqlar (submission'lar) ----
+  listSubmissions: () => request(ENDPOINTS.submissions),
+  createSubmission: (sub) => request(ENDPOINTS.submissions, { method: "POST", body: sub }),
+  updateSubmission: (id, patch) => request(`${ENDPOINTS.submissions}/${id}`, { method: "PATCH", body: patch }),
 
-  // ---- AI baholash (haqiqiy backend, OpenAI orqali) ----
+  // ---- AI baholash ----
+  // Bular endi to'g'ridan-to'g'ri OpenAI/Claude'ga emas, backendga boradi.
+  // Backend ichida OpenAI key bilan chaqiriladi (xavfsiz, key frontendda yo'q).
   gradeWriting: (prompt, answer, level) =>
     request(ENDPOINTS.gradeWriting, { method: "POST", body: { prompt, answer, level } }),
   gradeSpeaking: (prompt, transcript, level) =>
