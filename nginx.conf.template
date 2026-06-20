@@ -5,9 +5,15 @@ server {
     root /usr/share/nginx/html;
     index index.html;
 
-    # SPA routing — barcha noma'lum yo'llar index.html'ga tushadi (React Router)
+    location = /index.html {
+        add_header Cache-Control "no-cache, no-store, must-revalidate";
+        add_header Pragma "no-cache";
+        expires 0;
+    }
+
     location / {
         try_files $uri $uri/ /index.html;
+        add_header Cache-Control "no-cache, no-store, must-revalidate";
     }
 
     location /assets/ {
