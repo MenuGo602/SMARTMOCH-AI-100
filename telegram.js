@@ -5,13 +5,18 @@ export function getTelegram() {
   return window?.Telegram?.WebApp || null;
 }
 
-// Mini App'ni ishga tushirish: ready() + expand() chaqiradi.
+// Mini App'ni ishga tushirish: ready() + expand() (+ imkon bo'lsa requestFullscreen()) chaqiradi.
 export function initTelegram() {
   const tg = getTelegram();
   if (!tg) return null;
   try {
     tg.ready();
     tg.expand();
+    // requestFullscreen Bot API 8.0+ da mavjud (eski Telegram versiyalarida yo'q
+    // bo'lishi mumkin, shuning uchun mavjudligini tekshirib chaqiramiz).
+    if (typeof tg.requestFullscreen === "function") {
+      tg.requestFullscreen();
+    }
   } catch (e) {
     /* brauzerda (Telegram tashqarisida) test qilinayotgan bo'lishi mumkin */
   }
