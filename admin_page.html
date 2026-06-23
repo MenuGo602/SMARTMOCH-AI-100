@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="uz">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>SmartMock AI — Admin</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, system-ui, sans-serif; background: #F5F3FC; margin: 0; padding: 20px; color: #1A1440; }
+  h1 { font-size: 20px; margin-bottom: 16px; display: flex; align-items: center; justify-content: space-between; }
+  .badge { font-size: 12px; background: #8B6FF0; color: #fff; padding: 4px 10px; border-radius: 999px; }
+  .card { background: #fff; border: 1px solid #E5E0F5; border-radius: 12px; padding: 16px; margin-bottom: 12px; }
+  input { width: 100%; padding: 10px; border: 1px solid #E5E0F5; border-radius: 8px; font-size: 14px; margin-bottom: 10px; }
+  button { padding: 10px 16px; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; }
+  .btn-primary { background: #4B2FBE; color: #fff; width: 100%; }
+  .btn-ok { background: #1FA152; color: #fff; margin-right: 8px; }
+  .btn-bad { background: #E0463F; color: #fff; }
+  .row { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+  .info { flex: 1; }
+  .name { font-weight: 600; font-size: 14px; }
+  .sub { font-size: 12px; color: #6B6489; margin-top: 3px; }
+  .actions { margin-top: 12px; display: flex; gap: 8px; flex-wrap: wrap; }
+  .empty { text-align: center; color: #6B6489; padding: 30px 0; font-size: 13px; }
+  #error { color: #E0463F; font-size: 13px; margin-bottom: 10px; }
+  .receipt-img { width: 100%; max-height: 220px; object-fit: contain; border-radius: 8px; border: 1px solid #E5E0F5; margin-top: 10px; cursor: pointer; }
+  .quota-badge { font-size: 11px; background: #E8F8EE; color: #1FA152; padding: 2px 8px; border-radius: 999px; font-weight: 600; margin-left: 6px; }
+</style>
+</head>
+<body>
+
+<div id="login-screen">
+  <h1>Admin panel — kirish</h1>
+  <div class="card">
+    <div id="error"></div>
+    <input id="password" type="password" placeholder="Admin parol" onkeydown="if(event.key==='Enter')login()" />
+    <button class="btn-primary" onclick="login()">Kirish</button>
+  </div>
+</div>
+
+<div id="dashboard" style="display:none">
+  <h1>O'qituvchilik so'rovlari <span class="badge" id="count">0</span></h1>
+  <button onclick="loadRequests()" style="background:transparent;border:1px solid #E5E0F5;border-radius:8px;margin-bottom:14px;padding:7px 14px;font-size:13px;cursor:pointer;">Yangilash</button>
+  <div id="list"></div>
+</div>
+
+<div id="receipt-modal" onclick="closeModal()" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.75);z-index:100;align-items:center;justify-content:center;">
+  <img id="modal-img" src="" style="max-width:90%;max-height:90%;border-radius:12px;" onclick="event.stopPropagation()" />
+</div>
+
+<script>
+  const BACKEND = window.location.origin;
+  const API_BASE = BACKEND + "/api/v1";
+  let password = localStorage.getItem("admin_pw") || "";
+
+  async function req(path, opts = {}) {
+    const res = await fetch(API_BASE + path, {
+      ...opts,
+      headers: { "Content-Type": "application/json", "X-Admin-Password": password, ...(opts.headers || {}) },
+    });
+    if (!res.ok) throw new Error("Xato: " + res.status);
+    return res.json();
+  }
+
+  async function login() {
+    password = document.getElementById("password").value;
+    document.getElementById("error").textContent = "";
+    try {
+      await req("/admin/teacher-requests");
+      localStorage.setItem("admin_pw", password);
+      document.getElementById("login-screen").style.display = "none";
+      document.getElementById("dashboard").style.display = "block";
+      loadRequests();
+    } catch (e) {
+      document.getElementById("error").textContent = "Noto'g'ri parol yoki server xatosi.";
+    }
+  }
+
+  async function loadRequests() {
+    const list = document.getElementById("list");
+    list.innerHTML = "<div class='empty'>Yuklanmoqda...</div>";
+    try {
+      const reqs = await req("/admin/teacher-requests");
+      document.getElementById("count").textContent = reqs.length;
+      if (!reqs.length) {
+        list.innerHTML = "<div class='empty'>Hozircha kutilayotgan so'rov yo'q.</div>";
+        return;
+      }
+      list.innerHTML = reqs.map(r => `
+        <div class="card" id="req-${r.id}">
+          <div class="row">
+            <div class="info">
+              <div class="name">${r.userName || "Ism kiritilmagan"}</div>
+              <div class="sub">Telegram ID: <b>${r.userId}</b></div>
+              <div class="sub">${new Date(r.createdAt).toLocaleString("uz-UZ")}</div>
+            </div>
+          </div>
+          ${r.receiptUrl
+            ? `<img class="receipt-img" src="${BACKEND + r.receiptUrl}" alt="To'lov cheki" onclick="openModal('${BACKEND + r.receiptUrl}')" />`
+            : `<div class="sub" style="margin-top:8px;color:#E0463F">⚠️ Chek yuklanmagan</div>`
+          }
+          <div class="actions">
+            <button class="btn-ok" onclick="approve(${r.id})">✓ Tasdiqlash (+5 imtihon)</button>
+            <button class="btn-bad" onclick="reject(${r.id})">✗ Rad etish</button>
+          </div>
+        </div>
+      `).join("");
+    } catch (e) {
+      list.innerHTML = "<div class='empty'>Yuklashda xatolik.</div>";
+    }
+  }
+
+  async function approve(id) {
+    const btn = document.querySelector(`#req-${id} .btn-ok`);
+    if (btn) { btn.disabled = true; btn.textContent = "..."; }
+    await req(`/admin/teacher-requests/${id}/approve`, { method: "POST" });
+    loadRequests();
+  }
+
+  async function reject(id) {
+    if (!confirm("Haqiqatan rad etmoqchimisiz?")) return;
+    await req(`/admin/teacher-requests/${id}/reject`, { method: "POST" });
+    loadRequests();
+  }
+
+  function openModal(url) {
+    document.getElementById("modal-img").src = url;
+    document.getElementById("receipt-modal").style.display = "flex";
+  }
+
+  function closeModal() {
+    document.getElementById("receipt-modal").style.display = "none";
+  }
+
+  if (password) { document.getElementById("password").value = password; login(); }
+</script>
+</body>
+</html>
