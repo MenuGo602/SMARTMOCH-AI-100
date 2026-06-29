@@ -1,0 +1,62 @@
+FROM python:3.12-slim
+
+WORKDIR /app
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+RUN mkdir -p app/grading app/auth app/core app/exams app/submissions app/uploads app/payments app/admin app/bot
+
+# ---- grading ----
+COPY __init__.py app/grading/__init__.py
+COPY router.py app/grading/router.py
+COPY schemas.py app/grading/schemas.py
+COPY openai_client.py app/grading/openai_client.py
+
+# ---- core ----
+COPY core_database.py app/core/database.py
+COPY core_models.py app/core/models.py
+RUN touch app/core/__init__.py
+
+# ---- auth ----
+COPY auth_dependencies.py app/auth/dependencies.py
+COPY auth_schemas.py app/auth/schemas.py
+COPY auth_router.py app/auth/router.py
+RUN touch app/auth/__init__.py
+
+# ---- exams ----
+COPY exams_schemas.py app/exams/schemas.py
+COPY exams_router.py app/exams/router.py
+RUN touch app/exams/__init__.py
+
+# ---- submissions ----
+COPY submissions_schemas.py app/submissions/schemas.py
+COPY submissions_router.py app/submissions/router.py
+RUN touch app/submissions/__init__.py
+
+# ---- uploads ----
+COPY uploads_router.py app/uploads/router.py
+RUN touch app/uploads/__init__.py
+
+# ---- payments ----
+COPY payments_router.py app/payments/router.py
+COPY payments_schemas.py app/payments/schemas.py
+RUN touch app/payments/__init__.py
+
+# ---- admin ----
+COPY admin_dependencies.py app/admin/dependencies.py
+COPY admin_page.html app/admin/admin_page.html
+RUN touch app/admin/__init__.py
+
+# ---- bot ----
+COPY app/bot_router.py app/bot/router.py
+RUN touch app/bot/__init__.py
+
+# ---- main ----
+COPY main.py app/main.py
+RUN touch app/__init__.py
+
+ENV PORT=8000
+EXPOSE 8000
+
+CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT}"]
