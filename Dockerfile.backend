@@ -49,7 +49,7 @@ COPY admin_page.html app/admin/admin_page.html
 RUN touch app/admin/__init__.py
 
 # ---- bot ----
-COPY bot_router.py app/bot/router.py
+COPY app/bot_router.py app/bot/router.py
 RUN touch app/bot/__init__.py
 
 # ---- main ----
